@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Food Images</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .food-item { border: 1px solid #ddd; margin: 10px; padding: 15px; }
+        .food-image { max-width: 200px; height: auto; }
+        .error { color: red; }
+        .success { color: green; }
+    </style>
+</head>
+<body>
+    <h1>Food Images Test</h1>
+    
+    <?php
+    try {
+        // Database connection
+        $pdo = new PDO('sqlite:../database/database.sqlite');
+        $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+        
+        // Get foods with photos
+        $stmt = $pdo->query("SELECT * FROM food WHERE photo IS NOT NULL AND photo != '' ORDER BY id LIMIT 20");
+        $foods = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        
+        echo "<h2>Foods with Photos (" . count($foods) . " found)</h2>";
+        
+        if (count($foods) > 0) {
+            foreach ($foods as $food) {
+                echo "<div class='food-item'>";
+                echo "<h3>" . htmlspecialchars($food['turkish_description']) . "</h3>";
+                echo "<p>English: " . htmlspecialchars($food['description']) . "</p>";
+                echo "<p>Photo Path: " . htmlspecialchars($food['photo']) . "</p>";
+                
+                $photoUrl = $food['photo'];
+                
+                // Test if the image exists and display it
+                echo "<div>";
+                echo "<img src='" . htmlspecialchars($photoUrl) . "' class='food-image' alt='Food Image'>";
+                echo "<p class='error' style='display:none;'>Image failed to load: " . htmlspecialchars($photoUrl) . "</p>";
+                echo "</div>";
+                
+                echo "</div>";
+            }
+        } else {
+            echo "<p class='error'>No foods with photos found in database.</p>";
+            echo "<p>This means the images haven't been linked to food items yet.</p>";
+        }
+        
+        // Show total stats
+        $stmt = $pdo->query("SELECT COUNT(*) as total FROM food");
+        $total = $stmt->fetch(PDO::FETCH_ASSOC)['total'];
+        
+        $stmt = $pdo->query("SELECT COUNT(*) as with_photos FROM food WHERE photo IS NOT NULL AND photo != ''");
+        $withPhotos = $stmt->fetch(PDO::FETCH_ASSOC)['with_photos'];
+        
+        echo "<h2>Statistics</h2>";
+        echo "<p>Total food items: $total</p>";
+        echo "<p>Food items with photos: $withPhotos</p>";
+        echo "<p>Percentage with photos: " . round(($withPhotos / $total) * 100, 1) . "%</p>";
+        
+        // Show available images in storage
+        echo "<h2>Available Images in Storage</h2>";
+        $storageDir = __DIR__ . '/storage/foods';
+        if (is_dir($storageDir)) {
+            $images = array_diff(scandir($storageDir), ['.', '..']);
+            $imageFiles = array_filter($images, function($file) {
+                return preg_match('/\.(jpg|jpeg|png|gif|webp)$/i', $file);
+            });
+            echo "<p class='success'>Found " . count($imageFiles) . " image files in storage/foods</p>";
+            
+            echo "<h3>Sample Images:</h3>";
+            $sampleImages = array_slice($imageFiles, 0, 5);
+            foreach ($sampleImages as $image) {
+                echo "<div style='display: inline-block; margin: 10px; text-align: center;'>";
+                echo "<img src='/storage/foods/" . htmlspecialchars($image) . "' style='max-width: 100px; max-height: 100px;' alt='Sample'>";
+                echo "<br><small>" . htmlspecialchars($image) . "</small>";
+                echo "</div>";
+            }
+        } else {
+            echo "<p class='error'>Storage directory not found: $storageDir</p>";
+        }
+        
+    } catch (Exception $e) {
+        echo "<p class='error'>Error: " . $e->getMessage() . "</p>";
+    }
+    ?>
+    
+    <h2>Test Direct Image Access</h2>
+    <p>Testing if we can access images directly:</p>
+    <img src="/storage/foods/images.jpg" alt="Test Image" style="max-width: 200px;" onerror="this.style.display='none'; this.nextElementSibling.style.display='block';">
+    <p style="display:none; color: red;">Cannot access /storage/foods/images.jpg</p>
+    
+</body>
+</html>
